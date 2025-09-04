@@ -6,7 +6,7 @@ The goal of this project is to implement a PBR renderer. You are asked to implem
 
 ## Grading
 * Group size: **1**
-* Due date: 17/10/2024, 23h42
+* Due date: 11/10/2025, 23h42
 * Format: `zip` of the entire project, dropped on Moodle
 
 
@@ -78,11 +78,11 @@ trying to figure out why your specular is off, when the issue might actually com
 
 ### Warm up (0 points)
 This short part will help you discover the code. It will be used in the next section, so don't skip it.
-1. Draw the `NormalWS` vector (the fragment's surface normal in World-Space). This kind of vector is in the [-1, 1] range. To reinterpret it as a color, we usually remap to [0, 1].
+1. Draw the `NormalLS` vector (the fragment's surface normal in Local-Space). This kind of vector is in the [-1, 1] range. To reinterpret it as a color, we usually remap to [0, 1].
 2. Draw the `ViewDirectionWS` vector (the direction from the fragment to the camera, in World-Space). As for the normal, don't forget to remap it in [0, 1].
 
 Here is an example of what you should see:
-| NormalWS | ViewDirectionWS |
+| NormalLS | ViewDirectionWS |
 | :------: | :-------------: |
 | <img src="./screenshots/NormalWS.jpg" width=60% height=60%>  | <img src="./screenshots/ViewDirectionWS.jpg" width=60% height=60%>  |
 

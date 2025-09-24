@@ -35,10 +35,21 @@ vec4 LinearTosRGB( in vec4 value ) {
 	return vec4( mix( pow( value.rgb, vec3( 0.41666 ) ) * 1.055 - vec3( 0.055 ), value.rgb * 12.92, vec3( lessThanEqual( value.rgb, vec3( 0.0031308 ) ) ) ), value.a );
 }
 
+vec3 FresnelSchlick(vec3 f0, vec3 w_i, vec3 w_o) {
+  return f0 + (1.0 - f0) * pow(clamp(1.0 - dot(w_o, w_i), 0.0, 1.0), 5.0);
+}
+
 void main()
 {
   vec3 irradiance = vec3(0.0);
   for (int i = 0; i < NB_LIGHTS; ++i) {
+    // clean version (follows pseudo code)
+    vec3 w_i = uLights[i].position - vPositionWS.xyz;
+    vec3 w_o = normalize(w_i + vViewDirectionWS);
+    // dielectrics: f0 = 0.4
+    vec3 f0 = vec3(0.04);
+    vec3 kS = FresnelSchlick(f0, w_i, w_o);
+
     vec3 ray = uLights[i].position - vPositionWS.xyz;
     vec3 color = clamp(dot(vNormalWS, ray), 0.0, 1.0) * uLights[i].color;
     irradiance += color * uLights[i].intensity;

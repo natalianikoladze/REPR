@@ -21,6 +21,7 @@ out vec4 vPositionWS;
 struct Camera
 {
   mat4 WS_to_CS; // World-Space to Clip-Space (view * proj)
+  vec3 position;
 };
 uniform Camera uCamera;
 
@@ -30,11 +31,11 @@ struct Model
 };
 uniform Model uModel;
 
-void main()
-{
+void main() {
+  vNormalWS = normalize(in_normal);
   vec4 positionLocal = vec4(in_position, 1.0);
-  vNormalWS = in_normal;
   vPositionWS = uCamera.WS_to_CS * uModel.LS_to_WS * positionLocal;
   gl_Position = uCamera.WS_to_CS * uModel.LS_to_WS * positionLocal;
+  vViewDirectionWS = normalize(uCamera.WS_to_CS * uModel.LS_to_WS * vec4(uCamera.position, 1.0) - gl_Position).xyz;
 }
 `;

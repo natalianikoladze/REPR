@@ -42,6 +42,7 @@ class Application {
       'uMaterial.albedo': vec3.create(),
       'uModel.LS_to_WS': mat4.create(),
       'uCamera.WS_to_CS': mat4.create(),
+      'uCamera.position': this._camera._position,
       'uLightLen': this._nbLights,
     };
 
@@ -82,7 +83,7 @@ class Application {
     }
 
     // Set lights.
-    this.addPointLight(vec3.fromValues(0.0, 69.0, 40.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
+    this.addPointLight(vec3.fromValues(0.0, 0.0, 20.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
     //this.addPointLight(vec3.fromValues(300.0, -300.0, 0.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
 
     this._nbLights = this._lights.length;

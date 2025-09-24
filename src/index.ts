@@ -6,6 +6,7 @@ import { GLContext } from './gl';
 import { PBRShader } from './shader/pbr-shader';
 import { Texture, Texture2D } from './textures/texture';
 import { UniformType } from './types';
+import { PointLight, PonctualLight } from './lights/lights';
 
 // GUI elements
 interface GUIProperties {
@@ -25,6 +26,8 @@ class Application {
   private _textureExample: Texture2D<HTMLElement> | null;
   private _camera: Camera;
   private _guiProperties: GUIProperties; // Object updated with the properties from the GUI
+  private _lights: PointLight[];
+  private _nbLights: number;
 
 
   constructor(canvas: HTMLCanvasElement) {
@@ -33,10 +36,13 @@ class Application {
     this._geometry = new SphereGeometry();
     this._shader = new PBRShader();
     this._textureExample = null;
+    this._lights = [];
+    this._nbLights = 3;
     this._uniforms = {
       'uMaterial.albedo': vec3.create(),
       'uModel.LS_to_WS': mat4.create(),
       'uCamera.WS_to_CS': mat4.create(),
+      'uLightLen': this._nbLights,
     };
 
     // Set GUI default values
@@ -48,6 +54,14 @@ class Application {
     // It's useful to have parameters you can dynamically change to see what happens.
     const gui = new GUI();
     gui.addColor(this._guiProperties, 'albedo');
+  }
+
+  addPointLight(position: vec3, color: vec3, intensity: number) {
+    let pointLight = new PointLight();
+    pointLight.setPosition(position[0], position[1], position[2]);
+    pointLight.setColorRGB(color[0], color[1], color[2]);
+    pointLight.setIntensity(intensity);
+    this._lights.push(pointLight);
   }
 
   /**
@@ -65,6 +79,19 @@ class Application {
       this._context.uploadTexture(this._textureExample);
       // You can then use it directly as a uniform:
       // ```uniforms.myTexture = this._textureExample;```
+    }
+
+    // Set lights.
+    this.addPointLight(vec3.fromValues(0.0, 69.0, 40.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
+    //this.addPointLight(vec3.fromValues(300.0, -300.0, 0.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
+
+    this._nbLights = this._lights.length;
+    this._uniforms['NB_LIGHTS'] = this._lights.length;
+
+    for (let l = 0; l < this._nbLights; ++l) {
+      this._uniforms['uLights[' + l + '].color'] = this._lights[l].color;
+      this._uniforms['uLights[' + l + '].position'] = this._lights[l].positionWS;
+      this._uniforms['uLights[' + l + '].intensity'] = this._lights[l].intensity;
     }
 
     // Handle keyboard and mouse inputs to translate and rotate camera.

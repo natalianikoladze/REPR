@@ -11,6 +11,8 @@ in vec3 in_normal;
 
 // Varyings (vertex shader outputs)
 out vec3 vNormalWS;
+out vec3 vViewDirectionWS;
+out vec4 vPositionWS;
 #ifdef USE_UV
   out vec2 vUv;
 #endif
@@ -31,6 +33,8 @@ uniform Model uModel;
 void main()
 {
   vec4 positionLocal = vec4(in_position, 1.0);
+  vNormalWS = in_normal;
+  vPositionWS = uCamera.WS_to_CS * uModel.LS_to_WS * positionLocal;
   gl_Position = uCamera.WS_to_CS * uModel.LS_to_WS * positionLocal;
 }
 `;

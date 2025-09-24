@@ -1,6 +1,10 @@
 export default `
 precision highp float;
 
+in vec3 vNormalWS;
+
+in vec4 vPositionWS;
+
 // Fragment shader output
 out vec4 outFragColor;
 
@@ -10,6 +14,16 @@ struct Material
   vec3 albedo;
 };
 uniform Material uMaterial;
+
+struct Light
+{
+  vec3 color;
+  float intensity;
+  vec3 position;
+};
+uniform Light uLights[10]; // 10 = max number of lights
+
+uniform int NB_LIGHTS;
 
 // From three.js
 vec4 sRGBToLinear( in vec4 value ) {
@@ -23,10 +37,18 @@ vec4 LinearTosRGB( in vec4 value ) {
 
 void main()
 {
+  vec3 irradiance = vec3(0.0);
+  for (int i = 0; i < NB_LIGHTS; ++i) {
+    vec3 ray = uLights[i].position - vPositionWS.xyz;
+    vec3 color = clamp(dot(vNormalWS, ray), 0.0, 1.0) * uLights[i].color;
+    irradiance += color * uLights[i].intensity;
+  }
   // **DO NOT** forget to do all your computation in linear space.
   vec3 albedo = sRGBToLinear(vec4(uMaterial.albedo, 1.0)).rgb;
 
   // **DO NOT** forget to apply gamma correction as last step.
-  outFragColor.rgba = LinearTosRGB(vec4(albedo, 1.0));
+  outFragColor.rgba = LinearTosRGB(vec4(albedo * irradiance, 1.0));
+  // Reinhard
+  outFragColor.rgb = outFragColor.rgb / (1.0 + outFragColor.rgb);
 }
 `;

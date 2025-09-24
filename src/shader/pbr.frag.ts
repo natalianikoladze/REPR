@@ -3,6 +3,8 @@ precision highp float;
 
 in vec3 vNormalWS;
 
+in vec3 vViewDirectionWS;
+
 in vec4 vPositionWS;
 
 // Fragment shader output
@@ -39,8 +41,15 @@ vec3 FresnelSchlick(vec3 f0, vec3 w_i, vec3 w_o) {
   return f0 + (1.0 - f0) * pow(clamp(1.0 - dot(w_o, w_i), 0.0, 1.0), 5.0);
 }
 
+vec3 brdf_diffuse(vec3 albedo) {
+  return albedo / 3.141592654;
+}
+
 void main()
 {
+  // **DO NOT** forget to do all your computation in linear space.
+  vec3 albedo = sRGBToLinear(vec4(uMaterial.albedo, 1.0)).rgb;
+
   vec3 irradiance = vec3(0.0);
   for (int i = 0; i < NB_LIGHTS; ++i) {
     // clean version (follows pseudo code)
@@ -49,14 +58,14 @@ void main()
     // dielectrics: f0 = 0.4
     vec3 f0 = vec3(0.04);
     vec3 kS = FresnelSchlick(f0, w_i, w_o);
-
+    vec3 diffuseBRDFEval = (1.0 - kS) * uLights[i].color * clamp((dot(vNormalWS, w_i)), 0.0, 1.0) * uLights[i].intensity;
+    irradiance += diffuseBRDFEval;
+    /*
     vec3 ray = uLights[i].position - vPositionWS.xyz;
     vec3 color = clamp(dot(vNormalWS, ray), 0.0, 1.0) * uLights[i].color;
     irradiance += color * uLights[i].intensity;
+    */
   }
-  // **DO NOT** forget to do all your computation in linear space.
-  vec3 albedo = sRGBToLinear(vec4(uMaterial.albedo, 1.0)).rgb;
-
   // **DO NOT** forget to apply gamma correction as last step.
   outFragColor.rgba = LinearTosRGB(vec4(albedo * irradiance, 1.0));
   // Reinhard

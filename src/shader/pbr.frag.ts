@@ -28,7 +28,7 @@ uniform Light uLights[10]; // 10 = max number of lights
 uniform int NB_LIGHTS;
 
 float PI = 3.141592654;
-float roughness = 0.1;
+float roughness = 0.5;
 
 // From three.js
 vec4 sRGBToLinear( in vec4 value ) {
@@ -40,8 +40,9 @@ vec4 LinearTosRGB( in vec4 value ) {
 	return vec4( mix( pow( value.rgb, vec3( 0.41666 ) ) * 1.055 - vec3( 0.055 ), value.rgb * 12.92, vec3( lessThanEqual( value.rgb, vec3( 0.0031308 ) ) ) ), value.a );
 }
 
-float FresnelSchlick(float f0, vec3 w_i, vec3 w_o) {
-  return f0 + (1.0 - f0) * 1.0 - pow(1.0 - clamp(dot(w_o, w_i), 0.0, 1.0), 5.0);
+vec3 FresnelSchlick(vec3 f0, vec3 w_i, vec3 w_o) {
+  vec3 h = normalize((w_i + w_o) / length(w_i + w_o));
+  return f0 + (1.0 - f0) * pow(1.0 - clamp(dot(w_o, h), 0.0, 1.0), 5.0);
 }
 
 float normal_distrib(vec3 w_o, vec3 w_i) {
@@ -81,22 +82,22 @@ void main()
 {
   // **DO NOT** forget to do all your computation in linear space.
   vec3 albedo = sRGBToLinear(vec4(uMaterial.albedo, 1.0)).rgb;
+  // dielectrics: f0 = 0.4
+  vec3 f0 = vec3(0.04);
+  vec3 metallic = vec3(0.5);
 
   vec3 irradiance = vec3(0.0);
   for (int i = 0; i < NB_LIGHTS; ++i) {
     // clean version (follows pseudo code)
     vec3 w_i = normalize(uLights[i].position - vPositionWS.xyz);
     vec3 w_o = normalize(w_i + vViewDirectionWS);
-    // dielectrics: f0 = 0.4
-    float f0 = 0.04;
-    float metallic = 0.1;
 
-    float kS = FresnelSchlick(f0, w_i, w_o);
-    float kD = (1.0 - kS) * (1.0 - metallic);
+    vec3 kS = FresnelSchlick(f0, w_i, w_o);
+    vec3 kD = (1.0 - kS) * (1.0 - metallic);
     vec3 diffuseBRDFEval = kD * brdf_diffuse(albedo);
-    float specularBRDFEval = kS * brdf_specular(w_o, w_i);
+    vec3 specularBRDFEval = kS * brdf_specular(w_o, w_i);
 
-    irradiance += (diffuseBRDFEval + specularBRDFEval) * uLights[i].color * uLights[i].intensity * clamp(dot(vNormalWS, w_i), 0.0, 1.0);
+    irradiance += 0.2 + (diffuseBRDFEval) * uLights[i].color * uLights[i].intensity * max(dot(vNormalWS, w_i), 0.0);
     /*
     vec3 ray = uLights[i].position - vPositionWS.xyz;
     vec3 color = clamp(dot(vNormalWS, ray), 0.0, 1.0) * uLights[i].color;

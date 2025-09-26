@@ -45,6 +45,8 @@ vec3 brdf_diffuse(vec3 albedo) {
   return albedo / 3.141592654;
 }
 
+//vec3 brdf_specular()
+
 void main()
 {
   // **DO NOT** forget to do all your computation in linear space.
@@ -57,9 +59,14 @@ void main()
     vec3 w_o = normalize(w_i + vViewDirectionWS);
     // dielectrics: f0 = 0.4
     vec3 f0 = vec3(0.04);
+    vec3 metallic = vec3(0.5);
+
     vec3 kS = FresnelSchlick(f0, w_i, w_o);
-    vec3 diffuseBRDFEval = (1.0 - kS) * uLights[i].color * clamp((dot(vNormalWS, w_i)), 0.0, 1.0) * uLights[i].intensity;
-    irradiance += diffuseBRDFEval;
+    vec3 kD = (1.0 - kS) * (1.0 - metallic);
+    vec3 diffuseBRDFEval = kD * brdf_diffuse(albedo);
+    //vec3 specularBRDFEval = kS *
+
+    irradiance += 0.2 + diffuseBRDFEval * uLights[i].color * uLights[i].intensity * max(dot(vNormalWS, normalize(w_i)), 0.0);
     /*
     vec3 ray = uLights[i].position - vPositionWS.xyz;
     vec3 color = clamp(dot(vNormalWS, ray), 0.0, 1.0) * uLights[i].color;

@@ -17,6 +17,8 @@ struct Material
 };
 uniform Material uMaterial;
 
+uniform sampler2D uTextureDiffuse;
+
 struct Light
 {
   vec3 color;
@@ -28,7 +30,20 @@ uniform Light uLights[10]; // 10 = max number of lights
 uniform int NB_LIGHTS;
 
 float PI = 3.141592654;
-float roughness = 0.1;
+float roughness = 0.5;
+float metallic = 0.5;
+
+vec3 RGBMDecode(vec4 rgbm) {
+  return 6.0 * rgbm.rgb * rgbm.a;
+}
+
+vec2 cartesianToSpherical(vec3 cartesian) {
+    // Compute azimuthal angle, in [-PI, PI]
+    float phi = atan(cartesian.z, cartesian.x);
+    // Compute polar angle, in [-PI/2, PI/2]
+    float theta = asin(cartesian.y);
+    return vec2(phi, theta);
+}
 
 // From three.js
 vec4 sRGBToLinear( in vec4 value ) {
@@ -41,17 +56,14 @@ vec4 LinearTosRGB( in vec4 value ) {
 }
 
 vec3 FresnelSchlick(vec3 f0, vec3 w_i, vec3 w_o) {
-  vec3 h = (w_i + w_o) / length(w_i + w_o);
+  vec3 h = normalize(w_i + w_o);
   return f0 + (1.0 - f0) * pow(1.0 - clamp(dot(w_o, h), 0.0, 1.0), 5.0);
 }
 
 float normal_distrib(vec3 w_o, vec3 w_i) {
-  vec3 h = (w_i + w_o) / length(w_i + w_o);
-  float num = pow(roughness, 2.0);
+  vec3 h = normalize(w_i + w_o);
+  float num = pow(max(roughness, 0.01), 2.0);
   float denom = PI * pow(pow(clamp(dot(vNormalWS, h), 0.0, 1.0), 2.0) * (num - 1.0) + 1.0, 2.0);
-  if (denom == 0.0) {
-    return num;
-  }
   float D = num / denom;
   return D;
 }
@@ -59,9 +71,6 @@ float normal_distrib(vec3 w_o, vec3 w_i) {
 float GSchlick(vec3 w, float k) {
   float num = clamp(dot(vNormalWS, w), 0.0, 1.0);
   float denom = num * (1.0 - k) + k;
-  if (denom == 0.0) {
-    return num;
-  }
   return num / denom;
 }
 
@@ -82,40 +91,50 @@ float brdf_specular(vec3 w_o, vec3 w_i) {
   float num = D * G;
   float denom = 4.0 * clamp(dot(w_o, vNormalWS), 0.0, 1.0) * clamp(dot(w_i, vNormalWS), 0.0, 1.0);
   if (denom == 0.0) {
-    return num;
+    return denom = 0.0001;
   }
   return num / denom;
+}
+
+vec2 ToUV(vec3 coords) {
+  vec2 spherical = cartesianToSpherical(coords);
+  float u = (spherical.x) / PI + 1.0;
+  float v = (spherical.y) / PI + 0.5;
+  return vec2(u, v);
 }
 
 void main()
 {
   // **DO NOT** forget to do all your computation in linear space.
   vec3 albedo = sRGBToLinear(vec4(uMaterial.albedo, 1.0)).rgb;
-  // dielectrics: f0 = 0.4
-  vec3 f0 = vec3(0.04);
-  vec3 metallic = vec3(0.25);
+  // dielectrics: f0 = 0.04
+  vec3 f0 = vec3(0.02);
+  f0 = mix(f0, albedo, metallic);
 
   vec3 irradiance = vec3(0.0);
+  vec3 w_o = vViewDirectionWS;
   for (int i = 0; i < NB_LIGHTS; ++i) {
     // clean version (follows pseudo code)
     vec3 w_i = normalize(uLights[i].position - vPositionWS.xyz);
-    vec3 w_o = vViewDirectionWS;
 
     vec3 kS = FresnelSchlick(f0, w_i, w_o);
     vec3 kD = (1.0 - kS) * (1.0 - metallic);
     vec3 diffuseBRDFEval = kD * brdf_diffuse(albedo);
     vec3 specularBRDFEval = kS * brdf_specular(w_o, w_i);
+    vec3 in_radiance = uLights[i].color * uLights[i].intensity;
 
-    irradiance += 0.2 + (diffuseBRDFEval + specularBRDFEval) * uLights[i].color * uLights[i].intensity * max(dot(vNormalWS, w_i), 0.0);
-    /*
-    vec3 ray = uLights[i].position - vPositionWS.xyz;
-    vec3 color = clamp(dot(vNormalWS, ray), 0.0, 1.0) * uLights[i].color;
-    irradiance += color * uLights[i].intensity;
-    */
+    irradiance += 0.2 + (diffuseBRDFEval + specularBRDFEval) * in_radiance * max(dot(vNormalWS, w_i), 0.0);
   }
+  vec3 kS = FresnelSchlick(f0, vNormalWS, w_o);
+  vec3 kD = (1.0 - kS) * (1.0 - metallic);
+  vec3 diffuseIBL = kD * albedo * RGBMDecode(texture(uTextureDiffuse, ToUV(vNormalWS)));
+  irradiance += diffuseIBL;
+
   // **DO NOT** forget to apply gamma correction as last step.
-  outFragColor.rgba = LinearTosRGB(vec4(albedo * irradiance, 1.0));
+  outFragColor.rgba = LinearTosRGB(vec4(diffuseIBL, 1.0));
   // Reinhard
   outFragColor.rgb = outFragColor.rgb / (1.0 + outFragColor.rgb);
+
+  //texture(uTexture, vUv);
 }
 `;

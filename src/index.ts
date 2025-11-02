@@ -7,6 +7,7 @@ import { PBRShader } from './shader/pbr-shader';
 import { Texture, Texture2D } from './textures/texture';
 import { UniformType } from './types';
 import { PointLight, PonctualLight } from './lights/lights';
+import { PlaneGeometry } from './geometries/plane';
 
 // GUI elements
 interface GUIProperties {
@@ -22,8 +23,9 @@ class Application {
   private _context: GLContext; // Context used to draw to the canvas
   private _shader: PBRShader;
   private _geometry: SphereGeometry;
+  private _quad: PlaneGeometry;
   private _uniforms: Record<string, UniformType | Texture>;
-  private _textureExample: Texture2D<HTMLElement> | null;
+  private _textureDiffuse: Texture2D<HTMLElement> | null;
   private _camera: Camera;
   private _guiProperties: GUIProperties; // Object updated with the properties from the GUI
   private _lights: PointLight[];
@@ -34,8 +36,9 @@ class Application {
     this._context = new GLContext(canvas);
     this._camera = new Camera(0.0, 0.0, 18.0);
     this._geometry = new SphereGeometry();
+    this._quad = new PlaneGeometry(canvas.width, canvas.height);
     this._shader = new PBRShader();
-    this._textureExample = null;
+    this._textureDiffuse = null;
     this._lights = [];
     this._nbLights = 3;
     this._uniforms = {
@@ -70,22 +73,58 @@ class Application {
   async init() {
     this._context.uploadGeometry(this._geometry);
     this._context.compileProgram(this._shader);
+/*
+    this._context.uploadGeometry(this._quad);
 
+    const diffuseTexture = this._context.gl.createTexture();
+    this._context.gl.bindTexture(this._context.gl.TEXTURE_2D, diffuseTexture);
+    this._context.gl.texImage2D(this._context.gl.TEXTURE_2D,
+      0,
+      this._context.gl.RGBA,
+      canvas.width,
+      canvas.height,
+      0,
+      this._context.gl.RGBA,
+      this._context.gl.FLOAT,
+      null);
+    this._context.gl.texParameteri(this._context.gl.TEXTURE_2D, this._context.gl.TEXTURE_MIN_FILTER, this._context.gl.LINEAR);
+    this._context.gl.texParameteri(this._context.gl.TEXTURE_2D, this._context.gl.TEXTURE_MAG_FILTER, this._context.gl.LINEAR);
+    this._context.gl.texParameteri(this._context.gl.TEXTURE_2D, this._context.gl.TEXTURE_WRAP_S, this._context.gl.CLAMP_TO_EDGE);
+    this._context.gl.texParameteri(this._context.gl.TEXTURE_2D, this._context.gl.TEXTURE_WRAP_T, this._context.gl.CLAMP_TO_EDGE);
+    this._context.gl.bindTexture(this._context.gl.TEXTURE_2D, null);
+
+    const diffuseFB = this._context.gl.createFramebuffer();
+    this._context.gl.bindFramebuffer(this._context.gl.FRAMEBUFFER, diffuseFB);
+    this._context.gl.framebufferTexture2D(this._context.gl.FRAMEBUFFER,
+      this._context.gl.COLOR_ATTACHMENT0, this._context.gl.TEXTURE_2D, diffuseTexture, 0);
+
+      // check completeness
+    const status = this._context.gl.checkFramebufferStatus(this._context.gl.FRAMEBUFFER);
+    if (status !== this._context.gl.FRAMEBUFFER_COMPLETE) {
+    throw new Error('Framebuffer incomplete: ' + status.toString());
+    }
+
+    this._context.gl.viewport(0, 0, canvas.width, canvas.height);
+    this._context.gl.clearColor(0, 0, 0, 1);
+    this._context.gl.clear(this._context.gl.COLOR_BUFFER_BIT | this._context.gl.DEPTH_BUFFER_BIT);
+
+
+    this._context.gl.bindFramebuffer(this._context.gl.FRAMEBUFFER, 0);
+*/
     // Example showing how to load a texture and upload it to GPU.
-    this._textureExample = await Texture2D.load(
-      'assets/ggx-brdf-integrated.png'
-    );
-    if (this._textureExample !== null) {
-      this._context.uploadTexture(this._textureExample);
+    this._textureDiffuse = await Texture2D.load('assets/env/Alexs_Apt_2k-diffuse-RGBM.png');
+    if (this._textureDiffuse !== null) {
+      this._uniforms['uTextureDiffuse'] = this._textureDiffuse;
+      this._context.uploadTexture(this._textureDiffuse);
       // You can then use it directly as a uniform:
       // ```uniforms.myTexture = this._textureExample;```
     }
 
     // Set lights.
-    this.addPointLight(vec3.fromValues(-50.0, -50.0, 100.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
-    this.addPointLight(vec3.fromValues(50.0, 50.0, 100.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
-    this.addPointLight(vec3.fromValues(50.0, -50.0, 100.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
-    this.addPointLight(vec3.fromValues(-50.0, 50.0, 100.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
+    this.addPointLight(vec3.fromValues(25.0, 25.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
+    this.addPointLight(vec3.fromValues(25.0, -25.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
+    this.addPointLight(vec3.fromValues(-25.0, 25.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
+    this.addPointLight(vec3.fromValues(-25.0, -25.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
 
     this._nbLights = this._lights.length;
     this._uniforms['NB_LIGHTS'] = this._lights.length;

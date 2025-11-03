@@ -12,6 +12,7 @@ import { PlaneGeometry } from './geometries/plane';
 // GUI elements
 interface GUIProperties {
   albedo: number[];
+  ibl: boolean;
 }
 
 /**
@@ -55,12 +56,14 @@ class Application {
     // Set GUI default values
     this._guiProperties = {
       albedo: [255, 255, 255],
+      ibl: false,
     };
     // Creates a GUI floating on the upper right side of the page.
     // You are free to do whatever you want with this GUI.
     // It's useful to have parameters you can dynamically change to see what happens.
     const gui = new GUI();
     gui.addColor(this._guiProperties, 'albedo');
+    gui.add(this._guiProperties, 'ibl');
   }
 
   addPointLight(position: vec3, color: vec3, intensity: number) {
@@ -152,6 +155,8 @@ class Application {
       props.albedo[0] / 255,
       props.albedo[1] / 255,
       props.albedo[2] / 255);
+
+    this._uniforms['ibl'] = props.ibl;
 
     // Set World-Space to Clip-Space transformation matrix (a.k.a view-projection).
     const aspect = this._context.gl.drawingBufferWidth / this._context.gl.drawingBufferHeight;

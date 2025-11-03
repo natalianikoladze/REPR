@@ -19,6 +19,8 @@ struct Material
 };
 uniform Material uMaterial;
 
+uniform bool ibl;
+
 uniform sampler2D uTextureDiffuse;
 uniform sampler2D uTextureSpecular;
 uniform sampler2D uTexturePreInt;
@@ -103,8 +105,8 @@ float brdf_specular(vec3 w_o, vec3 w_i) {
 
 vec2 ToUV(vec3 coords) {
   vec2 spherical = cartesianToSpherical(coords);
-  float u = ((spherical.x) / PI) / 2.0 + 0.5;
-  float v = ((spherical.y) / PI) / 2.0 / 2.0 + 0.5;
+  float u = ((spherical.x) / (PI * 2.0)) + 0.5;
+  float v = ((spherical.y) / PI) + 0.5;
   return vec2(u, v);
 }
 
@@ -147,15 +149,17 @@ void main()
   vec2 brdf = texture(uTexturePreInt, vec2(dot(vNormalWS, w_o), uMaterial.roughness)).xy;
   vec3 specularBRDF = specularIBL * (kS * brdf.r + brdf.g);
 
-  vec3 gi = diffuseIBL;
+  vec3 gi = diffuseIBL + specularBRDF;
 
-  //irradiance = gi;
+  if (ibl) {
+    irradiance = gi;
+  }
 
   // **DO NOT** forget to apply gamma correction as last step.
-  outFragColor.rgba = LinearTosRGB(vec4(albedo * irradiance, 1.0));
+  outFragColor.rgba = vec4(irradiance, 1.0);
   // Reinhard
-  outFragColor.rgb = (outFragColor.rgb / (vec3(1.0) + outFragColor.rgb));
+  outFragColor.rgb = outFragColor.rgb / (vec3(1.0) + outFragColor.rgb);
   // gamma correction
-  outFragColor.rgb = pow(outFragColor.rgb, vec3(1.0 / 2.2));
+  outFragColor.rgba = LinearTosRGB(outFragColor.rgba);
 }
 `;

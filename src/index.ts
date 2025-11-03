@@ -26,6 +26,8 @@ class Application {
   private _quad: PlaneGeometry;
   private _uniforms: Record<string, UniformType | Texture>;
   private _textureDiffuse: Texture2D<HTMLElement> | null;
+  private _textureSpecular: Texture2D<HTMLElement> | null;
+  private _texturePreInt: Texture2D<HTMLElement> | null;
   private _camera: Camera;
   private _guiProperties: GUIProperties; // Object updated with the properties from the GUI
   private _lights: PointLight[];
@@ -39,6 +41,8 @@ class Application {
     this._quad = new PlaneGeometry(canvas.width, canvas.height);
     this._shader = new PBRShader();
     this._textureDiffuse = null;
+    this._textureSpecular = null;
+    this._texturePreInt = null;
     this._lights = [];
     this._nbLights = 3;
     this._uniforms = {
@@ -73,44 +77,7 @@ class Application {
   async init() {
     this._context.uploadGeometry(this._geometry);
     this._context.compileProgram(this._shader);
-/*
-    this._context.uploadGeometry(this._quad);
 
-    const diffuseTexture = this._context.gl.createTexture();
-    this._context.gl.bindTexture(this._context.gl.TEXTURE_2D, diffuseTexture);
-    this._context.gl.texImage2D(this._context.gl.TEXTURE_2D,
-      0,
-      this._context.gl.RGBA,
-      canvas.width,
-      canvas.height,
-      0,
-      this._context.gl.RGBA,
-      this._context.gl.FLOAT,
-      null);
-    this._context.gl.texParameteri(this._context.gl.TEXTURE_2D, this._context.gl.TEXTURE_MIN_FILTER, this._context.gl.LINEAR);
-    this._context.gl.texParameteri(this._context.gl.TEXTURE_2D, this._context.gl.TEXTURE_MAG_FILTER, this._context.gl.LINEAR);
-    this._context.gl.texParameteri(this._context.gl.TEXTURE_2D, this._context.gl.TEXTURE_WRAP_S, this._context.gl.CLAMP_TO_EDGE);
-    this._context.gl.texParameteri(this._context.gl.TEXTURE_2D, this._context.gl.TEXTURE_WRAP_T, this._context.gl.CLAMP_TO_EDGE);
-    this._context.gl.bindTexture(this._context.gl.TEXTURE_2D, null);
-
-    const diffuseFB = this._context.gl.createFramebuffer();
-    this._context.gl.bindFramebuffer(this._context.gl.FRAMEBUFFER, diffuseFB);
-    this._context.gl.framebufferTexture2D(this._context.gl.FRAMEBUFFER,
-      this._context.gl.COLOR_ATTACHMENT0, this._context.gl.TEXTURE_2D, diffuseTexture, 0);
-
-      // check completeness
-    const status = this._context.gl.checkFramebufferStatus(this._context.gl.FRAMEBUFFER);
-    if (status !== this._context.gl.FRAMEBUFFER_COMPLETE) {
-    throw new Error('Framebuffer incomplete: ' + status.toString());
-    }
-
-    this._context.gl.viewport(0, 0, canvas.width, canvas.height);
-    this._context.gl.clearColor(0, 0, 0, 1);
-    this._context.gl.clear(this._context.gl.COLOR_BUFFER_BIT | this._context.gl.DEPTH_BUFFER_BIT);
-
-
-    this._context.gl.bindFramebuffer(this._context.gl.FRAMEBUFFER, 0);
-*/
     // Example showing how to load a texture and upload it to GPU.
     this._textureDiffuse = await Texture2D.load('assets/env/Alexs_Apt_2k-diffuse-RGBM.png');
     if (this._textureDiffuse !== null) {
@@ -119,12 +86,26 @@ class Application {
       // You can then use it directly as a uniform:
       // ```uniforms.myTexture = this._textureExample;```
     }
+    this._textureSpecular = await Texture2D.load('assets/env/Alexs_Apt_2k-specular-RGBM.png');
+    if (this._textureSpecular !== null) {
+      this._uniforms['uTextureSpecular'] = this._textureSpecular;
+      this._context.uploadTexture(this._textureSpecular);
+      // You can then use it directly as a uniform:
+      // ```uniforms.myTexture = this._textureExample;```
+    }
+    this._texturePreInt = await Texture2D.load('assets/ggx-brdf-integrated.png');
+    if (this._texturePreInt !== null) {
+      this._uniforms['uTexturePreInt'] = this._texturePreInt;
+      this._context.uploadTexture(this._texturePreInt);
+      // You can then use it directly as a uniform:
+      // ```uniforms.myTexture = this._textureExample;```
+    }
 
     // Set lights.
-    this.addPointLight(vec3.fromValues(25.0, 25.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
-    this.addPointLight(vec3.fromValues(25.0, -25.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
-    this.addPointLight(vec3.fromValues(-25.0, 25.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
-    this.addPointLight(vec3.fromValues(-25.0, -25.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
+    this.addPointLight(vec3.fromValues(25.0, 25.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 100.0);
+    this.addPointLight(vec3.fromValues(25.0, -50.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 100.0);
+    this.addPointLight(vec3.fromValues(-25.0, 0.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 100.0);
+    this.addPointLight(vec3.fromValues(-25.0, -50.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 100.0);
 
     this._nbLights = this._lights.length;
     this._uniforms['NB_LIGHTS'] = this._lights.length;
@@ -183,7 +164,8 @@ class Application {
     const spacing = this._geometry.radius * 2.5;
     for (let r = 0; r < rows; ++r) {
       for (let c = 0; c < columns; ++c) {
-
+        this._uniforms['uMaterial.roughness'] = c / columns;
+        this._uniforms['uMaterial.metallic'] = r / rows;
         // Set Local-Space to World-Space transformation matrix (a.k.a model).
         const WsSphereTranslation = vec3.fromValues(
           (c - columns * 0.5) * spacing + spacing * 0.5,

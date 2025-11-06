@@ -19,6 +19,7 @@ struct Material
 };
 uniform Material uMaterial;
 
+uniform bool specular;
 uniform bool ibl;
 
 uniform sampler2D uTextureDiffuse;
@@ -36,10 +37,7 @@ uniform Light uLights[10]; // 10 = max number of lights
 uniform int NB_LIGHTS;
 
 float PI = 3.141592654;
-/*
-float uMaterial.roughness = 0.5;
-float uMaterial.metallic = 0.5;
-*/
+
 vec3 RGBMDecode(vec4 rgbm) {
   return 6.0 * rgbm.rgb * rgbm.a;
 }
@@ -69,20 +67,23 @@ vec3 FresnelSchlick(vec3 f0, vec3 w_i, vec3 w_o) {
 
 float normal_distrib(vec3 w_o, vec3 w_i) {
   vec3 h = normalize(w_i + w_o);
-  float num = pow(max(uMaterial.roughness, 0.01), 2.0);
-  float denom = PI * pow(pow(clamp(dot(vNormalWS, h), 0.0, 1.0), 2.0) * (num - 1.0) + 1.0, 2.0);
+  float num = max(uMaterial.roughness, 0.01) * max(uMaterial.roughness, 0.01);
+  float t1 = max(dot(vNormalWS, h), 0.0) * max(dot(vNormalWS, h), 0.0);
+  float t2 = num - 1.0;
+  float t = t1 * t2 + 1.0;
+  float denom = PI * t * t;
   float D = num / denom;
   return D;
 }
 
 float GSchlick(vec3 w, float k) {
-  float num = clamp(dot(vNormalWS, w), 0.0, 1.0);
-  float denom = num * (1.0 - k) + k;
+  float num = max(dot(vNormalWS, w), 0.0);
+  float denom = max(num * (1.0 - k) + k, 0.001);
   return num / denom;
 }
 
 float geometric(vec3 w_o, vec3 w_i) {
-  float k = pow((uMaterial.roughness + 1.0), 2.0) / 8.0;
+  float k = pow((max(uMaterial.roughness, 0.001) + 1.0), 2.0) / 8.0;
   float shadowing = GSchlick(w_i, k);
   float obstruction = GSchlick(w_o, k);
   return shadowing * obstruction;
@@ -92,15 +93,13 @@ vec3 brdf_diffuse(vec3 albedo) {
   return albedo / PI;
 }
 
-float brdf_specular(vec3 w_o, vec3 w_i) {
+vec3 brdf_specular(vec3 f0, vec3 w_o, vec3 w_i) {
+  vec3 F = FresnelSchlick(f0, w_o, w_i);
   float D = normal_distrib(w_o, w_i);
   float G = geometric(w_o, w_i);
-  float num = D * G;
-  float denom = 4.0 * clamp(dot(w_o, vNormalWS), 0.0, 1.0) * clamp(dot(w_i, vNormalWS), 0.0, 1.0);
-  if (denom == 0.0) {
-    return denom = 0.0001;
-  }
-  return num / denom;
+  vec3 num = D * G * F;
+  float denom = 4.0 * max(dot(w_o, vNormalWS), 0.0) * max(dot(w_i, vNormalWS), 0.0);
+  return num / max(denom, 0.0001);
 }
 
 vec2 ToUV(vec3 coords) {
@@ -110,10 +109,11 @@ vec2 ToUV(vec3 coords) {
   return vec2(u, v);
 }
 
-vec2 ComputeUVFromRoughness(vec3 reflected) {
-  float u = uMaterial.roughness;
-  float v = dot(vNormalWS, reflected);
-  return vec2(u, v);
+vec2 ComputeUVFromRoughness(vec3 reflected, float lod) {
+  vec2 uv = ToUV(reflected);
+  uv.x = uv.x / (lod + 1.0);
+  uv.y = (1.0 - uv.y) / (lod + 1.0);
+  return uv;
 }
 
 void main()
@@ -133,20 +133,25 @@ void main()
     vec3 kS = FresnelSchlick(f0, w_i, w_o);
     vec3 kD = (1.0 - kS) * (1.0 - uMaterial.metallic);
     vec3 diffuseBRDFEval = kD * brdf_diffuse(albedo);
-    vec3 specularBRDFEval = kS * brdf_specular(w_o, w_i);
-    vec3 in_radiance = uLights[i].color * uLights[i].intensity / (pow(length(uLights[i].position - vPositionWS.xyz), 2.0) + 0.001);
+    vec3 specularBRDFEval = brdf_specular(f0, w_o, w_i);
+    float dist = length(uLights[i].position - vPositionWS.xyz);
+    vec3 in_radiance = (uLights[i].color * uLights[i].intensity * clamp(dot(vNormalWS, w_i), 0.0, 1.0)) / (dist * dist + 0.001);
 
-    irradiance += (diffuseBRDFEval + specularBRDFEval) * in_radiance * clamp(dot(vNormalWS, w_i), 0.0, 1.0);
+    vec3 brdf = diffuseBRDFEval;
+    if (specular) {
+      brdf += specularBRDFEval;
+    }
+    irradiance += brdf * in_radiance;
   }
   vec3 kS = FresnelSchlick(f0, vNormalWS, w_o);
-  vec3 kD = (1.0 - kS) * (1.0 - uMaterial.metallic);
+  vec3 kD = (vec3(1.0) - kS) * (1.0 - uMaterial.metallic);
   vec3 diffuseIBL = kD * albedo * RGBMDecode(texture(uTextureDiffuse, ToUV(vNormalWS)));
 
   vec3 reflected = reflect(w_o, vNormalWS);
-  vec2 uv = ComputeUVFromRoughness(reflected);
-  vec3 specularIBL = RGBMDecode(texture(uTextureSpecular, uv));
+  float lod = uMaterial.roughness * 4.0;
+  vec3 specularIBL = RGBMDecode(texture(uTextureSpecular, ComputeUVFromRoughness(reflected, lod)));
 
-  vec2 brdf = texture(uTexturePreInt, vec2(dot(vNormalWS, w_o), uMaterial.roughness)).xy;
+  vec2 brdf = texture(uTexturePreInt, vec2(clamp(dot(vNormalWS, w_o), 0.0, 1.0), uMaterial.roughness)).xy;
   vec3 specularBRDF = specularIBL * (kS * brdf.r + brdf.g);
 
   vec3 gi = diffuseIBL + specularBRDF;

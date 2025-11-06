@@ -12,6 +12,7 @@ import { PlaneGeometry } from './geometries/plane';
 // GUI elements
 interface GUIProperties {
   albedo: number[];
+  specular: boolean;
   ibl: boolean;
 }
 
@@ -56,6 +57,7 @@ class Application {
     // Set GUI default values
     this._guiProperties = {
       albedo: [255, 255, 255],
+      specular: true,
       ibl: false,
     };
     // Creates a GUI floating on the upper right side of the page.
@@ -63,6 +65,7 @@ class Application {
     // It's useful to have parameters you can dynamically change to see what happens.
     const gui = new GUI();
     gui.addColor(this._guiProperties, 'albedo');
+    gui.add(this._guiProperties, 'specular');
     gui.add(this._guiProperties, 'ibl');
   }
 
@@ -105,10 +108,10 @@ class Application {
     }
 
     // Set lights.
-    this.addPointLight(vec3.fromValues(25.0, 25.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 100.0);
-    this.addPointLight(vec3.fromValues(25.0, -50.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 100.0);
-    this.addPointLight(vec3.fromValues(-25.0, 0.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 100.0);
-    this.addPointLight(vec3.fromValues(-25.0, -50.0, 25.0), vec3.fromValues(255.0, 255.0, 255.0), 100.0);
+    this.addPointLight(vec3.fromValues(10.0, -10.0, 10.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
+    this.addPointLight(vec3.fromValues(-10.0, -10.0, 10.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
+    this.addPointLight(vec3.fromValues(10.0, 10.0, 10.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
+    this.addPointLight(vec3.fromValues(-10.0, 10.0, 10.0), vec3.fromValues(255.0, 255.0, 255.0), 1.0);
 
     this._nbLights = this._lights.length;
     this._uniforms['NB_LIGHTS'] = this._lights.length;
@@ -156,6 +159,7 @@ class Application {
       props.albedo[1] / 255,
       props.albedo[2] / 255);
 
+    this._uniforms['specular'] = props.specular;
     this._uniforms['ibl'] = props.ibl;
 
     // Set World-Space to Clip-Space transformation matrix (a.k.a view-projection).

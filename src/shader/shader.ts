@@ -19,7 +19,7 @@ export class Shader {
   private _fragmentSource: string;
 
   public constructor(vertex: string, fragment: string) {
-    this.defines = {};
+    this.defines = {"USE_UV" : true};
     this._vertexSource = vertex;
     this._fragmentSource = fragment;
   }

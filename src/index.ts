@@ -12,8 +12,11 @@ import { PlaneGeometry } from './geometries/plane';
 // GUI elements
 interface GUIProperties {
   albedo: number[];
+  oneLight: boolean;
   specular: boolean;
   ibl: boolean;
+  texture: boolean;
+  useTextureParams: boolean;
 }
 
 /**
@@ -27,6 +30,10 @@ class Application {
   private _geometry: SphereGeometry;
   private _quad: PlaneGeometry;
   private _uniforms: Record<string, UniformType | Texture>;
+  private _texBaseColor: Texture2D<HTMLElement> | null;
+  private _texMetallic: Texture2D<HTMLElement> | null;
+  private _texNormal: Texture2D<HTMLElement> | null;
+  private _texRoughness: Texture2D<HTMLElement> | null;
   private _textureDiffuse: Texture2D<HTMLElement> | null;
   private _textureSpecular: Texture2D<HTMLElement> | null;
   private _texturePreInt: Texture2D<HTMLElement> | null;
@@ -42,6 +49,10 @@ class Application {
     this._geometry = new SphereGeometry();
     this._quad = new PlaneGeometry(canvas.width, canvas.height);
     this._shader = new PBRShader();
+    this._texBaseColor = null;
+    this._texMetallic = null;
+    this._texNormal = null;
+    this._texRoughness = null;
     this._textureDiffuse = null;
     this._textureSpecular = null;
     this._texturePreInt = null;
@@ -57,8 +68,11 @@ class Application {
     // Set GUI default values
     this._guiProperties = {
       albedo: [255, 255, 255],
+      oneLight: false,
       specular: true,
       ibl: false,
+      texture: false,
+      useTextureParams: false,
     };
     // Creates a GUI floating on the upper right side of the page.
     // You are free to do whatever you want with this GUI.
@@ -66,7 +80,10 @@ class Application {
     const gui = new GUI();
     gui.addColor(this._guiProperties, 'albedo');
     gui.add(this._guiProperties, 'specular');
+    gui.add(this._guiProperties, 'oneLight');
     gui.add(this._guiProperties, 'ibl');
+    gui.add(this._guiProperties, 'texture');
+    gui.add(this._guiProperties, 'useTextureParams');
   }
 
   addPointLight(position: vec3, color: vec3, intensity: number) {
@@ -103,6 +120,34 @@ class Application {
     if (this._texturePreInt !== null) {
       this._uniforms['uTexturePreInt'] = this._texturePreInt;
       this._context.uploadTexture(this._texturePreInt);
+      // You can then use it directly as a uniform:
+      // ```uniforms.myTexture = this._textureExample;```
+    }
+    this._texBaseColor = await Texture2D.load('assets/rustediron2_basecolor.png');
+    if (this._texBaseColor !== null) {
+      this._uniforms['uTexBaseColor'] = this._texBaseColor;
+      this._context.uploadTexture(this._texBaseColor);
+      // You can then use it directly as a uniform:
+      // ```uniforms.myTexture = this._textureExample;```
+    }
+    this._texMetallic = await Texture2D.load('assets/rustediron2_metallic.png');
+    if (this._texMetallic !== null) {
+      this._uniforms['uTexMetallic'] = this._texMetallic;
+      this._context.uploadTexture(this._texMetallic);
+      // You can then use it directly as a uniform:
+      // ```uniforms.myTexture = this._textureExample;```
+    }
+    this._texNormal = await Texture2D.load('assets/rustediron2_normal.png');
+    if (this._texNormal !== null) {
+      this._uniforms['uTexNormal'] = this._texNormal;
+      this._context.uploadTexture(this._texNormal);
+      // You can then use it directly as a uniform:
+      // ```uniforms.myTexture = this._textureExample;```
+    }
+    this._texBaseColor = await Texture2D.load('assets/rustediron2_roughness.png');
+    if (this._texRoughness !== null) {
+      this._uniforms['uTexRoughness'] = this._texRoughness;
+      this._context.uploadTexture(this._texRoughness);
       // You can then use it directly as a uniform:
       // ```uniforms.myTexture = this._textureExample;```
     }
@@ -160,7 +205,10 @@ class Application {
       props.albedo[2] / 255);
 
     this._uniforms['specular'] = props.specular;
+    this._uniforms['oneLight'] = props.oneLight;
     this._uniforms['ibl'] = props.ibl;
+    this._uniforms['textured'] = props.texture;
+    this._uniforms['useTextureParams'] = props.useTextureParams;
 
     // Set World-Space to Clip-Space transformation matrix (a.k.a view-projection).
     const aspect = this._context.gl.drawingBufferWidth / this._context.gl.drawingBufferHeight;

@@ -32,6 +32,7 @@ struct Model
 uniform Model uModel;
 
 void main() {
+  vUv = in_uv;
   vNormalWS = normalize(in_normal);
   vec4 positionLocal = vec4(in_position, 1.0);
   vPositionWS = uModel.LS_to_WS * positionLocal;
